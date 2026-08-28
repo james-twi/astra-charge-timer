@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Works out when to defer EV charging so a Vauxhall Astra Electric reaches its target charge by morning.">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef2f6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c141c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Charge Timer">
+<title>Astra Charge Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Chivo+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #eef2f6;
+    --surface: #ffffff;
+    --surface-2: #f4f7fa;
+    --ink: #16222e;
+    --ink-soft: #51626f;
+    --line: #d8e0e7;
+    --accent: #0b8fa8;
+    --accent-ink: #076779;
+    --accent-soft: rgba(11, 143, 168, 0.10);
+    --good: #1f7a3d;
+    --warn-ink: #8a4b08;
+    --warn-bg: rgba(217, 130, 30, 0.12);
+    --warn-line: rgba(217, 130, 30, 0.45);
+    --focus: #0b8fa8;
+    --track: #dbe4ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c141c;
+      --surface: #141f2a;
+      --surface-2: #1a2836;
+      --ink: #e8eef3;
+      --ink-soft: #93a5b3;
+      --line: #263646;
+      --accent: #3fc4dd;
+      --accent-ink: #6dd6ea;
+      --accent-soft: rgba(63, 196, 221, 0.12);
+      --good: #4fc47a;
+      --warn-ink: #f0b464;
+      --warn-bg: rgba(240, 180, 100, 0.10);
+      --warn-line: rgba(240, 180, 100, 0.35);
+      --focus: #3fc4dd;
+      --track: #24333f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c141c;
+    --surface: #141f2a;
+    --surface-2: #1a2836;
+    --ink: #e8eef3;
+    --ink-soft: #93a5b3;
+    --line: #263646;
+    --accent: #3fc4dd;
+    --accent-ink: #6dd6ea;
+    --accent-soft: rgba(63, 196, 221, 0.12);
+    --good: #4fc47a;
+    --warn-ink: #f0b464;
+    --warn-bg: rgba(240, 180, 100, 0.10);
+    --warn-line: rgba(240, 180, 100, 0.35);
+    --focus: #3fc4dd;
+    --track: #24333f;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 32px 20px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  header h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  header p {
+    margin: 4px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+
+  .pct-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .pct-input {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    flex: 0 0 auto;
+  }
+  #pct {
+    font-family: "Chivo Mono", "SFMono-Regular", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 2.6rem;
+    font-weight: 700;
+    width: 3ch;
+    border: none;
+    border-bottom: 2px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    text-align: right;
+    padding: 0 2px 2px;
+    border-radius: 0;
+  }
+  #pct:focus {
+    outline: none;
+    border-bottom-color: var(--focus);
+  }
+  #pct::-webkit-outer-spin-button, #pct::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  #pct[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  .pct-input .unit {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+
+  input[type="range"] {
+    flex: 1;
+    appearance: none;
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 40%), var(--track) var(--fill, 40%), var(--track) 100%);
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 3px solid var(--accent);
+    cursor: grab;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 3px solid var(--accent);
+    cursor: grab;
+  }
+  input[type="range"]:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+  }
+
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .seg button {
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 10px 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .seg button .kw {
+    font-family: "Chivo Mono", "SFMono-Regular", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.72rem;
+    font-weight: 400;
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .seg button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .result-card {
+    border-color: var(--accent);
+    border-width: 1.5px;
+  }
+  .headline {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-ink);
+    margin: 0 0 6px;
+  }
+  .big-time {
+    font-family: "Chivo Mono", "SFMono-Regular", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+  .big-sub {
+    margin: 4px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+  .big-sub strong { color: var(--ink); font-weight: 600; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 18px;
+  }
+  .stat {
+    background: var(--surface-2);
+    padding: 12px 14px;
+  }
+  .stat .k {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-soft);
+    margin: 0 0 2px;
+  }
+  .stat .v {
+    font-family: "Chivo Mono", "SFMono-Regular", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.05rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .note {
+    margin: 14px 0 0;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+  .note.good { color: var(--good); font-weight: 500; }
+  .banner {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: var(--warn-ink);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .hidden { display: none; }
+
+  details {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--ink-soft);
+    border-bottom: 2px solid var(--ink-soft);
+    transform: rotate(45deg);
+    transition: transform 0.15s ease;
+    margin-right: 2px;
+  }
+  details[open] summary::after { transform: rotate(-135deg); }
+  summary:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+    border-radius: 14px;
+  }
+  .settings {
+    padding: 4px 20px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .settings .full { grid-column: 1 / -1; }
+  .setting label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+  }
+  .setting input {
+    width: 100%;
+    font-family: "Chivo Mono", "SFMono-Regular", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .setting input:focus {
+    outline: none;
+    border-color: var(--focus);
+  }
+  .settings .hint {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+  }
+
+  footer p {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    summary::after { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Astra Charge Timer</h1>
+    <p>When to defer charging so the car hits its target by morning.</p>
+  </header>
+
+  <div class="card">
+    <label class="field-label" for="pct">Current battery</label>
+    <div class="pct-row">
+      <div class="pct-input">
+        <input id="pct" type="number" min="0" max="100" step="1" value="40" inputmode="numeric" aria-describedby="pct-desc">
+        <span class="unit">%</span>
+      </div>
+      <input id="pct-slider" type="range" min="0" max="100" step="1" value="40" aria-label="Current battery percentage">
+    </div>
+    <p id="pct-desc" class="note">Read it off the dash or the Vauxhall app before you plug in.</p>
+
+    <label class="field-label" style="margin-top: 18px;">Charging with</label>
+    <div class="seg" role="group" aria-label="Charger type">
+      <button type="button" data-type="granny" aria-pressed="true">Granny<span class="kw">2.3 kW</span></button>
+      <button type="button" data-type="wallbox" aria-pressed="false">Wallbox<span class="kw">7.4 kW</span></button>
+      <button type="button" data-type="custom" aria-pressed="false">Custom<span class="kw" id="custom-kw">— kW</span></button>
+    </div>
+  </div>
+
+  <div class="card result-card" id="result" aria-live="polite">
+    <p class="headline" id="headline">Defer charging by</p>
+    <p class="big-time" id="big-value">–</p>
+    <p class="big-sub" id="big-sub"></p>
+
+    <div class="stat-grid" id="stats">
+      <div class="stat">
+        <p class="k">Start at</p>
+        <p class="v" id="start-time">–</p>
+      </div>
+      <div class="stat">
+        <p class="k">Charging for</p>
+        <p class="v" id="duration">–</p>
+      </div>
+      <div class="stat">
+        <p class="k">Energy to add</p>
+        <p class="v" id="energy">–</p>
+      </div>
+      <div class="stat">
+        <p class="k">Done by</p>
+        <p class="v" id="done-by">–</p>
+      </div>
+    </div>
+
+    <p class="note hidden" id="ok-note"></p>
+    <div class="banner hidden" id="warn-banner"></div>
+  </div>
+
+  <details>
+    <summary>Assumptions</summary>
+    <div class="settings">
+      <div class="setting">
+        <label for="target">Target %</label>
+        <input id="target" type="number" min="1" max="100" step="1" value="80">
+      </div>
+      <div class="setting">
+        <label for="ready-by">Ready by</label>
+        <input id="ready-by" type="time" value="08:00">
+      </div>
+      <div class="setting">
+        <label for="power">Charger kW</label>
+        <input id="power" type="number" min="1" max="22" step="0.1" value="2.3">
+      </div>
+      <div class="setting">
+        <label for="capacity">Usable kWh</label>
+        <input id="capacity" type="number" min="10" max="120" step="0.5" value="51">
+      </div>
+      <div class="setting full">
+        <label for="efficiency">Charging efficiency %</label>
+        <input id="efficiency" type="number" min="60" max="100" step="1" value="90">
+      </div>
+      <p class="hint">Defaults are the Astra Electric: 51&nbsp;kWh usable battery and ~90% wall-to-battery efficiency. Granny = 3-pin plug at 2.3&nbsp;kW; Wallbox = the Astra's 7.4&nbsp;kW onboard AC limit. Editing "Charger kW" switches to Custom. Start time is rounded down to the nearest 5&nbsp;minutes, so you finish slightly early rather than late.</p>
+    </div>
+  </details>
+
+  <footer>
+    <p id="clock-note"></p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    pct: $("pct"), slider: $("pct-slider"),
+    target: $("target"), readyBy: $("ready-by"), power: $("power"),
+    capacity: $("capacity"), efficiency: $("efficiency"),
+    headline: $("headline"), bigValue: $("big-value"), bigSub: $("big-sub"),
+    stats: $("stats"), startTime: $("start-time"), duration: $("duration"),
+    energy: $("energy"), doneBy: $("done-by"),
+    okNote: $("ok-note"), warn: $("warn-banner"), clockNote: $("clock-note")
+  };
+
+  var STORE_KEY = "astra-charge-timer";
+
+  var CHARGE_TYPES = { granny: 2.3, wallbox: 7.4 };
+  var chargeType = "granny";
+  var segButtons = Array.prototype.slice.call(document.querySelectorAll(".seg button"));
+
+  function applyChargeType(type, keepPower) {
+    chargeType = CHARGE_TYPES[type] != null || type === "custom" ? type : "granny";
+    if (CHARGE_TYPES[chargeType] != null && !keepPower) {
+      els.power.value = CHARGE_TYPES[chargeType];
+    }
+    segButtons.forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.type === chargeType ? "true" : "false");
+    });
+    $("custom-kw").textContent = chargeType === "custom" ? num(els.power, 7.4) + " kW" : "— kW";
+  }
+
+  function loadSaved() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (s.pct != null) { els.pct.value = s.pct; els.slider.value = s.pct; }
+      if (s.target != null) els.target.value = s.target;
+      if (s.readyBy) els.readyBy.value = s.readyBy;
+      if (s.power != null) els.power.value = s.power;
+      if (s.capacity != null) els.capacity.value = s.capacity;
+      if (s.efficiency != null) els.efficiency.value = s.efficiency;
+      if (s.chargeType) applyChargeType(s.chargeType, true);
+    } catch (e) { /* storage unavailable — defaults are fine */ }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        pct: num(els.pct, 40),
+        target: num(els.target, 80),
+        readyBy: els.readyBy.value || "08:00",
+        power: num(els.power, 7.4),
+        capacity: num(els.capacity, 51),
+        efficiency: num(els.efficiency, 90),
+        chargeType: chargeType
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function num(el, fallback) {
+    var v = parseFloat(el.value);
+    return isFinite(v) ? v : fallback;
+  }
+
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+  function fmtClock(d) {
+    var h = String(d.getHours()).padStart(2, "0");
+    var m = String(d.getMinutes()).padStart(2, "0");
+    return h + ":" + m;
+  }
+
+  function fmtDur(ms) {
+    var mins = Math.floor(ms / 60000);
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    if (h === 0) return m + " min";
+    return h + " h " + String(m).padStart(2, "0") + " m";
+  }
+
+  function dayWord(d, now) {
+    var today = new Date(now); today.setHours(0, 0, 0, 0);
+    var that = new Date(d); that.setHours(0, 0, 0, 0);
+    var diff = Math.round((that - today) / 86400000);
+    if (diff === 0) return "today";
+    if (diff === 1) return "tomorrow";
+    return d.toLocaleDateString(undefined, { weekday: "long" });
+  }
+
+  function nextReadyBy(now, hhmm) {
+    var parts = (hhmm || "08:00").split(":");
+    var d = new Date(now);
+    d.setHours(parseInt(parts[0], 10) || 8, parseInt(parts[1], 10) || 0, 0, 0);
+    if (d <= now) d.setDate(d.getDate() + 1);
+    return d;
+  }
+
+  function syncSlider() {
+    var v = clamp(num(els.slider, 40), 0, 100);
+    els.slider.style.setProperty("--fill", v + "%");
+  }
+
+  function show(el, on) { el.classList.toggle("hidden", !on); }
+
+  function render() {
+    var now = new Date();
+    var pct = clamp(num(els.pct, 40), 0, 100);
+    var target = clamp(num(els.target, 80), 1, 100);
+    var capacity = num(els.capacity, 51);
+    var power = num(els.power, 7.4);
+    var eff = clamp(num(els.efficiency, 90), 60, 100) / 100;
+    var ready = nextReadyBy(now, els.readyBy.value);
+    var readyLabel = fmtClock(ready) + " " + dayWord(ready, now);
+
+    show(els.okNote, false);
+    show(els.warn, false);
+
+    if (pct >= target) {
+      els.headline.textContent = "Nothing to schedule";
+      els.bigValue.textContent = "✓ " + pct + "%";
+      els.bigSub.innerHTML = "Already at or above <strong>" + target + "%</strong> — no charge needed before " + readyLabel + ".";
+      show(els.stats, false);
+      els.clockNote.textContent = "Checked at " + fmtClock(now);
+      return;
+    }
+    show(els.stats, true);
+
+    var kwh = (target - pct) / 100 * capacity;
+    var rate = power * eff;
+    var hours = kwh / rate;
+    var durMs = hours * 3600000;
+
+    var start = new Date(ready.getTime() - durMs);
+    start.setSeconds(0, 0);
+    start.setMinutes(Math.floor(start.getMinutes() / 5) * 5);
+
+    els.energy.textContent = kwh.toFixed(1) + " kWh";
+    els.duration.textContent = fmtDur(durMs);
+
+    if (start <= now) {
+      var finish = new Date(now.getTime() + durMs);
+      els.headline.textContent = "Start charging now";
+      els.bigValue.textContent = "0 h 00 m";
+      els.bigSub.innerHTML = "No defer — plug in and charge immediately.";
+      els.startTime.textContent = fmtClock(now) + " (now)";
+      els.doneBy.textContent = fmtClock(finish) + " " + dayWord(finish, now);
+      if (finish > ready) {
+        els.warn.textContent = "Even charging non-stop, the car reaches " + target + "% at " +
+          fmtClock(finish) + " " + dayWord(finish, now) + " — after your " + fmtClock(ready) + " target. It will be at roughly " +
+          Math.min(100, Math.round(pct + ((ready - now) / 3600000) * rate / capacity * 100)) + "% by " + fmtClock(ready) + ".";
+        show(els.warn, true);
+      } else {
+        els.okNote.textContent = "Charging straight away still finishes before " + readyLabel + ".";
+        show(els.okNote, true);
+      }
+    } else {
+      var defer = start - now;
+      els.headline.textContent = "Defer charging by";
+      els.bigValue.textContent = fmtDur(defer);
+      els.bigSub.innerHTML = "Set the charger to start at <strong>" + fmtClock(start) + " " + dayWord(start, now) + "</strong>.";
+      els.startTime.textContent = fmtClock(start) + " " + dayWord(start, now);
+      els.doneBy.textContent = fmtClock(ready) + " " + dayWord(ready, now);
+      els.okNote.textContent = "Reaches " + target + "% by " + readyLabel + ", with a few minutes to spare from rounding.";
+      show(els.okNote, true);
+    }
+
+    els.clockNote.textContent = "Times based on your clock at " + fmtClock(now) + " — updates every 30 seconds.";
+  }
+
+  function onPctInput(fromSlider) {
+    if (fromSlider) {
+      els.pct.value = els.slider.value;
+    } else {
+      var v = clamp(num(els.pct, 40), 0, 100);
+      els.slider.value = v;
+    }
+    syncSlider();
+    save();
+    render();
+  }
+
+  els.pct.addEventListener("input", function () { onPctInput(false); });
+  els.pct.addEventListener("blur", function () {
+    els.pct.value = clamp(num(els.pct, 40), 0, 100);
+    onPctInput(false);
+  });
+  els.slider.addEventListener("input", function () { onPctInput(true); });
+
+  [els.target, els.readyBy, els.capacity, els.efficiency].forEach(function (el) {
+    el.addEventListener("input", function () { save(); render(); });
+  });
+
+  els.power.addEventListener("input", function () {
+    applyChargeType("custom", true);
+    save();
+    render();
+  });
+
+  segButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      applyChargeType(b.dataset.type, false);
+      save();
+      render();
+    });
+  });
+
+  loadSaved();
+  applyChargeType(chargeType, chargeType === "custom");
+  syncSlider();
+  render();
+  setInterval(render, 30000);
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () { /* offline install still works from cache */ });
+  });
+}
+</script>
+</body>
+</html>
